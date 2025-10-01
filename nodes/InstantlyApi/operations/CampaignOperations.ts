@@ -12,23 +12,10 @@ export class CampaignOperations {
 	 * Create a new campaign
 	 */
 	static async create(context: IExecuteFunctions, itemIndex: number): Promise<any> {
-		// HTML formatter for final API payload (after n8n expression processing)
-		const convertToHtmlFormat = (content: string): string => {
+		// Normalize email content before sending to Instantly (preserve plain text formatting)
+		const normalizeEmailContent = (content: string): string => {
 			if (!content) return '';
-
-			// Split content by line breaks and wrap each line in div tags
-			// This ensures proper line spacing and formatting in Instantly emails
-			const lines = content.split('\n');
-			const htmlContent = lines.map(line => {
-				// Handle empty lines with a div containing a break
-				if (line.trim() === '') {
-					return '<div><br /></div>';
-				}
-				// Wrap non-empty lines in div tags
-				return `<div>${line}</div>`;
-			}).join('');
-
-			return htmlContent;
+			return content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 		};
 
 		// Required fields
@@ -199,7 +186,7 @@ export class CampaignOperations {
 						return instantlyVars[placeholder] || placeholder;
 					});
 
-					// Step 4: Keep line breaks as \n for now - HTML conversion happens after n8n expression processing
+					// Step 4: Keep line breaks as \n so Instantly can render them appropriately
 					return finalContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 				};
 
@@ -246,17 +233,17 @@ export class CampaignOperations {
 			}
 		}
 
-		// Apply HTML formatting to email content right before API call
-		// This ensures it happens after all n8n expression processing is complete
+		// Normalize line endings on email content right before API call
+		// This happens after all n8n expression processing is complete
 		if (campaignData.sequences && campaignData.sequences[0] && campaignData.sequences[0].steps) {
 			campaignData.sequences[0].steps.forEach((step: any, stepIndex: number) => {
 				if (step.variants && step.variants.length > 0) {
 					step.variants.forEach((variant: any, variantIndex: number) => {
 						if (variant.subject) {
-							variant.subject = convertToHtmlFormat(variant.subject);
+							variant.subject = normalizeEmailContent(variant.subject);
 						}
 						if (variant.body) {
-							variant.body = convertToHtmlFormat(variant.body);
+							variant.body = normalizeEmailContent(variant.body);
 						}
 					});
 				}
